@@ -1,14 +1,14 @@
-const { ConsumerGroupStream } = require('kafka-node')
+const { KafkaConsumer } = require('node-rdkafka')
 const { Readable } = require('readable-stream')
 
 class Consumer extends Readable {
   constructor (host, topics, { group, raw = false } = {}) {
     super({ objectMode: true })
 
-    this.consumer = new ConsumerGroupStream({
-      kafkaHost: host,
-      groupId: group
-    }, topics)
+    this.consumer = KafkaConsumer.createReadStream({
+      'group.id': group,
+      'metadata.broker.list': host
+    }, null, { topics })
 
     this.consumer.on('data', async message => {
       if (raw) {
