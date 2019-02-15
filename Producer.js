@@ -1,25 +1,30 @@
-const { KafkaClient, ProducerStream } = require('kafka-node')
+const { Producer } = require('node-rdkafka')
 const { Writable } = require('readable-stream')
 
-class Producer extends Writable {
+class ProducerStream extends Writable {
   constructor (host, topic) {
     super({ objectMode: true })
 
     this.topic = topic
-    this.client = new KafkaClient({ kafkaHost: host })
-    this.producer = new ProducerStream(this.client)
+
+    this.producer = Producer.createWriteStream({
+      'metadata.broker.list': host
+    }, {}, { topic })
+
+    this.producer.on('error', err => this.emit('error', err))
   }
 
   _write (chunk, encoding, callback) {
-    this.producer.write({ topic: this.topic, messages: chunk }, encoding, callback)
+    this.producer.write(chunk)
+
+    callback()
   }
 
   _final (callback) {
     this.producer.close()
-    this.client.close()
 
     callback()
   }
 }
 
-module.exports = Producer
+module.exports = ProducerStream
