@@ -2,7 +2,7 @@ const { Producer } = require('node-rdkafka')
 const { Writable } = require('readable-stream')
 
 class ProducerStream extends Writable {
-  constructor (host, topic) {
+  constructor ({ host, topic, logger }) {
     super({ objectMode: true })
 
     this.topic = topic
@@ -11,19 +11,25 @@ class ProducerStream extends Writable {
       'metadata.broker.list': host
     }, {}, { topic })
 
-    this.producer.on('error', err => this.emit('error', err))
+    this.producer.on('close', () => {
+      logger.info('ProducerStream closed')
+    })
+
+    this.producer.on('error', (err) => {
+      this.emit('error', err)
+    })
   }
 
-  _write (chunk, encoding, callback) {
+  _write (chunk, encoding, done) {
     this.producer.write(chunk)
 
-    callback()
+    done()
   }
 
-  _final (callback) {
-    this.producer.close()
+  _final (done) {
+    this.producer.destroy()
 
-    callback()
+    done()
   }
 }
 
