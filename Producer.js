@@ -27,7 +27,7 @@ class ProducerStream extends Writable {
   }
 
   _final (done) {
-    this.producer.destroy()
+    this.producer.close()
 
     done()
   }

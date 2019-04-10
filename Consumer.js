@@ -14,9 +14,8 @@ class Consumer extends Readable {
     this.consumer.on('close', () => {
       logger.info('KafkaConsumerStream closed')
     })
-    this.consumer.on('data', logger.info)
 
-    this.consumer.on('data', (message) => {
+    this.consumer.on('data', async (message) => {
       if (raw) {
         this.push(message)
       } else if (message.value) {
@@ -28,7 +27,7 @@ class Consumer extends Readable {
   _read () {}
 
   _destroy () {
-    this.consumer.destroy()
+    this.consumer.close()
   }
 }
 
