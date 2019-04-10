@@ -1,0 +1,41 @@
+@base <http://example.com/pipeline> .
+@prefix code: <https://code.described.at/> .
+@prefix p: <https://pipeline.described.at/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+
+<#pipeline> a p:Pipeline;
+    p:variables [
+        p:variable [ a p:Variable;
+            p:name "input";
+            p:value "fixtures/input.json"
+        ], [ a p:Variable;
+            p:name "kafkaHost";
+            p:value "localhost:9092"
+        ], [ a p:Variable;
+            p:name "kafkaTopic";
+            p:value "my_topic"
+        ]
+    ];
+    p:steps [
+        p:stepList (<#readFile> <#byLine> <#writeKafka>)
+    ].
+
+<#readFile> a p:Step;
+    code:implementedBy [ a code:EcmaScript;
+        code:link <node:fs#createReadStream>
+    ];
+    code:arguments ("${input}"^^code:EcmaScriptTemplateLiteral).
+
+<#byLine> a p:Step;
+    code:implementedBy [ a code:EcmaScript;
+        code:link <node:byline#createStream>
+    ].
+
+<#writeKafka> a p:Step;
+    code:implementedBy [ a code:EcmaScript;
+        code:link <node:barnard59-kafka#producer>
+    ];
+    code:arguments (
+        "${kafkaHost}"^^code:EcmaScriptTemplateLiteral
+        "${kafkaTopic}"^^code:EcmaScriptTemplateLiteral
+    ).

@@ -1,0 +1,19 @@
+{
+  "name": "barnard59-kafka-tests",
+  "version": "0.0.0",
+  "description": "tests for barnard59-kafka",
+  "private": true,
+  "scripts": {
+    "consumer": "barnard59 run consumer.ttl --variable kafkaHost=localhost:9092 --format text/turtle --pipeline http://example.com/pipeline#pipeline",
+    "producer": "barnard59 run producer.ttl --format text/turtle --pipeline http://example.com/pipeline#pipeline",
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "barnard59-kafka": "file:../",
+    "barnard59-main": "git+https://github.com/zazuko/barnard59-main.git#master",
+    "byline": "^5.0.0",
+    "colors": "^1.3.3",
+    "diff": "^4.0.1",
+    "moment": "^2.24.0"
+  }
+}
