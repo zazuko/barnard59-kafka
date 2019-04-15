@@ -1,0 +1,122 @@
+@base <http://example.com/pipeline> .
+@prefix code: <https://code.described.at/> .
+@prefix p: <https://pipeline.described.at/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+
+<#pipeline> a p:Pipeline;
+    p:variables [
+        p:variable [ a p:Variable;
+            p:name "kafkaHost";
+            p:value "localhost:9092"
+        ], [ a p:Variable;
+           p:name "kafkaTopic";
+            p:value "my_topic"
+        ], [ a p:Variable;
+            p:name "output";
+            p:value "test.txt"
+        ], [ a p:Variable;
+            p:name "jsonldContext";
+            p:value """{
+                "@vocab": "http://schema.org/",
+                "@base":"http://data.example.com/uuid/",
+                "source": "http://businesses-selling-things.com/seller",
+                "publishedOn": "releaseDate",
+                "condition": "itemCondition",
+                "productUUID": "@id"
+            }"""
+        ]
+    ];
+    p:steps [
+        p:stepList (<#readKafka> <#forEach> <#serializeNTriples> <#save>)
+    ].
+
+<#readKafka> a p:Step;
+    code:implementedBy [ a code:EcmaScript;
+        code:link <node:barnard59-kafka#consumer>
+    ];
+    code:arguments (
+        "${kafkaHost}"^^code:EcmaScriptTemplateLiteral
+        "${kafkaTopic}"^^code:EcmaScriptTemplateLiteral
+    ).
+
+<#forEach> a p:Step;
+    code:implementedBy [ a code:EcmaScript;
+        code:link <node:barnard59-core#forEach>
+    ];
+    code:arguments (<#perMessage>).
+
+<#serializeNTriples> a p:Step;
+    code:implementedBy [ a code:EcmaScript;
+        code:link <node:barnard59-formats#ntriples.serialize>
+    ].
+
+<#perMessage> a p:Pipeline, p:ReadableObjectMode, p:WritableObjectMode;
+    p:steps [
+        p:stepList (<#toJsonLD> <#parseJsonLD> <#addType> <#fixQuads>)
+
+    ].
+
+<#toJsonLD> a p:Step;
+    code:implementedBy [ a code:EcmaScript;
+        code:link <node:barnard59-base#map>
+    ];
+    code:arguments ("""(json) => {
+        json = JSON.parse(json.toString())
+        json['@context'] = JSON.parse(this.variables.get('jsonldContext'))
+
+        return json
+    }"""^^code:EcmaScript).
+
+
+<#addType> a p:Step;
+    code:implementedBy [ a code:EcmaScript;
+        code:link <file:./AddTypeTransform.js#addType>;
+    ].
+
+<#fixQuads> a p:Step;
+    code:implementedBy [ a code:EcmaScript;
+        code:link <node:barnard59-base#map>
+    ];
+    code:arguments ("""(quad) => {
+        const rdf = require('rdf-ext')
+        const moment = require('moment')
+
+        if (rdf.namedNode('http://schema.org/releaseDate').equals(quad.predicate)) {
+            const date = moment.utc(quad.object.value, 'DDMMMYYYY:HH:mm:ss')
+            const object = rdf.literal(date.toISOString(), rdf.namedNode('http://www.w3.org/2001/XMLSchema#dateTime'))
+
+            return rdf.quad(quad.subject, quad.predicate, object)
+        }
+
+        if (rdf.namedNode('http://schema.org/itemCondition').equals(quad.predicate)) {
+            const conditions = {
+                0: 'unknown',
+                1: 'bad',
+                2: 'ok',
+                3: 'good',
+                4: 'new'
+            }
+            const conditionText = conditions[quad.object.value] || conditions[0]
+            const conditionTerm = rdf.literal(conditionText)
+
+            return rdf.quad(quad.subject, quad.predicate, conditionTerm)
+        }
+
+        if (rdf.namedNode('http://businesses-selling-things.com/seller').equals(quad.predicate)) {
+            return rdf.quad(quad.subject, quad.predicate, rdf.namedNode(`http://businesses-selling-things.com/sellers/${quad.object.value}`))
+        }
+
+        return quad
+    }"""^^code:EcmaScript).
+
+<#parseJsonLD> a p:Step;
+    code:implementedBy [ a code:EcmaScript;
+        code:link <node:barnard59-formats#jsonld.parse.object>
+    ].
+
+<#save> a p:Step;
+    code:implementedBy [ a code:EcmaScript;
+        code:link <node:fs#createWriteStream>
+    ];
+    code:arguments ("./fixtures/output.nt"^^code:EcmaScriptTemplateLiteral).
+  
